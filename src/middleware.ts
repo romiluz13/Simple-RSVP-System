@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // Check if it's an admin route
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    // Get the password from the URL (e.g., /admin?password=your-password)
+    const password = request.nextUrl.searchParams.get('password');
+    
+    // Check if password is correct (you should use environment variable in production)
+    if (password !== 'hadassa-oscar-2024') {
+      // Redirect to home page if password is incorrect
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
   // Get the response
   const response = NextResponse.next();
 
@@ -38,7 +50,7 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// Only run middleware on API routes
+// Run middleware on API routes and admin pages
 export const config = {
-  matcher: '/api/:path*',
+  matcher: ['/api/:path*', '/admin/:path*', '/admin'],
 }; 

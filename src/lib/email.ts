@@ -42,9 +42,31 @@ export async function sendConfirmationEmail(data: EmailData) {
   };
 
   try {
-    await sgMail.send(msg);
-  } catch (error) {
+    // Log DNS resolution attempt
+    console.log('Attempting to resolve api.sendgrid.com...');
+    
+    // Add request timeout
+    const response = await sgMail.send(msg);
+    console.log('Email sent successfully:', response);
+    return response;
+  } catch (error: any) {
     console.error('Error sending confirmation email:', error);
+    
+    // Enhanced error logging
+    if (error.code === 'ENOTFOUND') {
+      console.error('DNS resolution failed. This could be due to:');
+      console.error('1. Network connectivity issues');
+      console.error('2. DNS server problems');
+      console.error('3. VPN or firewall blocking the connection');
+    }
+    
+    if (error.response) {
+      console.error('SendGrid API response error:', {
+        status: error.response.status,
+        body: error.response.body,
+      });
+    }
+    
     throw error;
   }
 }
