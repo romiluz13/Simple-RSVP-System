@@ -1,4 +1,4 @@
-run = "npm run dev"
+run = "npm run start"
 hidden = [".build", ".config"]
 build = ["sh", "-c", "npm install && npm run build"]
 entrypoint = "src/app/page.tsx"
@@ -9,7 +9,7 @@ npm_config_prefix = "/home/runner/$REPL_SLUG/.config/npm/node_global"
 NODE_ENV = "development"
 
 [nix]
-channel = "stable-22_11"
+channel = "stable-23_11"
 
 [packager]
 language = "nodejs"
@@ -23,4 +23,9 @@ pattern = "**/{*.js,*.jsx,*.ts,*.tsx}"
 syntax = "javascript"
 
 [languages.javascript.languageServer]
-start = [ "typescript-language-server", "--stdio" ] 
+start = [ "typescript-language-server", "--stdio" ]
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+deploymentTarget = "cloudrun"
+ignorePorts = false 
