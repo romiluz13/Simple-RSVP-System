@@ -15,7 +15,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
     
-    if (token !== process.env.REMINDER_API_SECRET) {
+    if (!process.env.REMINDER_API_SECRET || token !== process.env.REMINDER_API_SECRET) {
+      console.error('Unauthorized reminder attempt');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -27,27 +28,39 @@ export async function GET(req: Request) {
 
     // Get all attending RSVPs
     const rsvps = await RSVP.find({ willAttend: true });
+    
+    console.log(`Found ${rsvps.length} attending RSVPs to send reminders to`);
 
     // Send reminder emails
     const results = await Promise.allSettled(
-      rsvps.map(rsvp =>
-        sendReminderEmail({
-          fullName: rsvp.fullName,
-          email: rsvp.email,
-          eventDate,
-          eventTime,
-          venueName,
-          venueAddress,
-        })
-      )
+      rsvps.map(async rsvp => {
+        try {
+          await sendReminderEmail({
+            fullName: rsvp.fullName,
+            email: rsvp.email,
+            eventDate,
+            eventTime,
+            venueName,
+            venueAddress,
+            guestCount: rsvp.guestCount,
+          });
+          console.log(`Reminder sent successfully to ${rsvp.email}`);
+          return { email: rsvp.email, status: 'success' };
+        } catch (error) {
+          console.error(`Failed to send reminder to ${rsvp.email}:`, error);
+          return { email: rsvp.email, status: 'failed', error };
+        }
+      })
     );
 
     // Count successes and failures
     const succeeded = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
 
+    console.log('Reminder sending completed:', { succeeded, failed });
+
     return NextResponse.json({
-      message: `Reminder emails sent`,
+      message: 'Reminder emails processed',
       stats: {
         total: rsvps.length,
         succeeded,
@@ -55,9 +68,9 @@ export async function GET(req: Request) {
       }
     });
   } catch (error) {
-    console.error('Failed to send reminder emails:', error);
+    console.error('Failed to process reminder emails:', error);
     return NextResponse.json(
-      { error: 'Failed to send reminder emails' },
+      { error: 'Failed to process reminder emails' },
       { status: 500 }
     );
   }
