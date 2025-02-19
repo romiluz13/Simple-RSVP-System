@@ -1,15 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config) => {
-    config.watchOptions = {
-      poll: 1000,
-      aggregateTimeout: 300,
-    };
-    return config;
+  reactStrictMode: true,
+  swcMinify: true,
+  output: 'standalone',
+  poweredByHeader: false,
+  compress: true,
+  generateEtags: true,
+  images: {
+    remotePatterns: [],
+    unoptimized: true
   },
   experimental: {
-    optimizePackageImports: ['@auth0/nextjs-auth0']
-  }
+    optimizeCss: true,
+  },
+  webpack: (config, { isServer }) => {
+    // Add any custom webpack configurations here
+    return config;
+  },
 };
 
 module.exports = nextConfig; 
