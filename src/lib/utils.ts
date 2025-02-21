@@ -59,3 +59,65 @@ export function generateId(length: number = 8): string {
  */
 export const isServer = typeof window === 'undefined';
 export const isClient = !isServer;
+
+export function generateICSFile(eventDetails: {
+  eventDate: string;
+  eventTime: string;
+  venueName: string;
+  venueAddress: string;
+  guestCount: number;
+}) {
+  // Convert date and time to UTC format
+  const eventDateTime = new Date(`${eventDetails.eventDate} ${eventDetails.eventTime}`);
+  const endDateTime = new Date(eventDateTime.getTime() + (3 * 60 * 60 * 1000)); // Default 3 hours duration
+
+  const formatDate = (date: Date) => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
+
+  const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+SUMMARY:Special Event Celebration
+DTSTART:${formatDate(eventDateTime)}
+DTEND:${formatDate(endDateTime)}
+LOCATION:${eventDetails.venueName}, ${eventDetails.venueAddress}
+DESCRIPTION:You have confirmed your attendance with ${eventDetails.guestCount} guest(s). We look forward to celebrating with you!
+STATUS:CONFIRMED
+SEQUENCE:0
+BEGIN:VALARM
+TRIGGER:-PT24H
+ACTION:DISPLAY
+DESCRIPTION:Event reminder
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+
+  return icsContent;
+}
+
+export function generateGoogleCalendarUrl(eventDetails: {
+  eventDate: string;
+  eventTime: string;
+  venueName: string;
+  venueAddress: string;
+  guestCount: number;
+}) {
+  const eventDateTime = new Date(`${eventDetails.eventDate} ${eventDetails.eventTime}`);
+  const endDateTime = new Date(eventDateTime.getTime() + (3 * 60 * 60 * 1000));
+
+  const formatDateForGoogle = (date: Date) => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: 'Special Event Celebration',
+    dates: `${formatDateForGoogle(eventDateTime)}/${formatDateForGoogle(endDateTime)}`,
+    details: `You have confirmed your attendance with ${eventDetails.guestCount} guest(s). We look forward to celebrating with you!`,
+    location: `${eventDetails.venueName}, ${eventDetails.venueAddress}`,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}

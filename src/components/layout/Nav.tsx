@@ -11,7 +11,7 @@ export function Nav() {
           href="/" 
           className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-200 to-yellow-500 hover:scale-105 transition-transform"
         >
-          Hadassa & Oscar
+          {process.env.NEXT_PUBLIC_EVENT_TITLE || ""}
         </Link>
       </nav>
     </header>

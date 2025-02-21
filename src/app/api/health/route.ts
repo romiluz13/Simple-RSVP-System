@@ -1,30 +1,34 @@
+
 import { NextResponse } from 'next/server';
+import { connectToDatabase } from '@/lib/db';
 import mongoose from 'mongoose';
 
 export async function GET() {
   try {
-    // Check MongoDB connection
-    const isConnected = mongoose.connection.readyState === 1;
-
+    console.log('🔍 Testing MongoDB connection...');
+    await connectToDatabase();
+    
+    // Test if we can list collections
+    if (!mongoose.connection.db) {
+      throw new Error('Database connection not established');
+    }
+    
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    console.log('✅ MongoDB connected successfully. Collections:', collections.map(c => c.name));
+    
     return NextResponse.json({
       status: 'healthy',
-      timestamp: new Date().toISOString(),
-      services: {
-        database: isConnected ? 'connected' : 'disconnected',
-        auth: 'available',
-        api: 'operational'
-      },
-      version: process.env.npm_package_version || '1.0.0'
+      mongodb: 'connected',
+      collections: collections.map(c => c.name)
     });
   } catch (error) {
-    console.error('Health check failed:', error);
+    console.error('❌ MongoDB connection error:', error);
     return NextResponse.json(
-      {
+      { 
         status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        error: 'Service unavailable'
+        error: error instanceof Error ? error.message : 'Failed to connect to MongoDB'
       },
-      { status: 503 }
+      { status: 500 }
     );
   }
 } 

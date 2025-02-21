@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
 
     strategy:
@@ -26,11 +26,31 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
-    - name: Run linter
+    - name: Run linting
       run: npm run lint
       
+    - name: Build project
+      run: npm run build
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        NEXT_PUBLIC_EVENT_TITLE: "Test Event"
+        NEXT_PUBLIC_EVENT_DATE: "2024-12-31"
+        NEXT_PUBLIC_EVENT_TIME: "18:00"
+        NEXT_PUBLIC_VENUE_NAME: "Test Venue"
+        NEXT_PUBLIC_VENUE_ADDRESS: "Test Address"
+        
     - name: Run tests
       run: npm test
-      
-    - name: Build
-      run: npm run build 
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to Vercel
+      run: |
+        echo "Deploy to Vercel will be configured later"
+      # Add Vercel deployment steps when ready 

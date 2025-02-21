@@ -2,16 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Check if it's an admin route
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    // Get the password from the URL (e.g., /admin?password=your-password)
-    const password = request.nextUrl.searchParams.get('password');
-    
-    // Check if password is correct (you should use environment variable in production)
-    if (password !== 'hadassa-oscar-2024') {
-      // Redirect to home page if password is incorrect
-      return NextResponse.redirect(new URL('/', request.url));
-    }
+  // Get the pathname
+  const path = request.nextUrl.pathname;
+  console.log('🛣️ Middleware handling path:', path);
+
+  // Skip middleware for API routes
+  if (path.startsWith('/api/')) {
+    console.log('🔄 Skipping middleware for API route');
+    return NextResponse.next();
   }
 
   // Get the response
@@ -20,37 +18,55 @@ export function middleware(request: NextRequest) {
   // Add security headers
   const headers = response.headers;
 
-  // CORS
-  headers.set('Access-Control-Allow-Origin', process.env.CORS_ORIGINS || 'http://localhost:3000');
-  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  // Security headers
+  // Basic security headers
   headers.set('X-DNS-Prefetch-Control', 'on');
   headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   headers.set('X-Frame-Options', 'SAMEORIGIN');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'origin-when-cross-origin');
-  headers.set('X-Permitted-Cross-Domain-Policies', 'none');
 
-  // Content Security Policy
+  // Content Security Policy that allows Next.js to function properly
   headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
-      "font-src 'self'",
-      "connect-src 'self' https:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
       "frame-ancestors 'none'",
     ].join('; ')
   );
 
+  // Handle admin routes
+  if (path.startsWith('/admin')) {
+    console.log('👤 Processing admin route');
+    
+    // Skip authentication for login page
+    if (path === '/admin/login') {
+      console.log('🔓 Allowing access to login page');
+      return response;
+    }
+
+    // Check for admin session cookie
+    const session = request.cookies.get('admin_session');
+    console.log('🍪 Session cookie in middleware:', session?.value);
+    
+    if (!session?.value || session.value !== 'authenticated') {
+      console.log('⚠️ No valid session cookie found, redirecting to login');
+      const url = request.nextUrl.clone();
+      url.pathname = '/admin/login';
+      return NextResponse.redirect(url);
+    }
+    
+    console.log('✅ Valid session cookie found, allowing access');
+  }
+
   return response;
 }
 
-// Run middleware on API routes and admin pages
+// Run middleware on admin routes only
 export const config = {
-  matcher: ['/api/:path*', '/admin/:path*', '/admin'],
+  matcher: ['/admin/:path*'],
 }; 

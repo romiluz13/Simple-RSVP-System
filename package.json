@@ -1,54 +1,55 @@
 {
-  "name": "hadassa-oscar-rsvp",
+  "name": "simple-rsvp-system",
   "version": "1.0.0",
-  "private": true,
+  "description": "A beautiful and simple RSVP system built with Next.js",
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev",
     "build": "next build",
-    "start": "next start -p 3000",
+    "start": "next start",
     "lint": "next lint",
-    "lint:fix": "next lint --fix",
-    "test": "jest",
-    "format": "prettier --write .",
-    "prepare": "husky install",
-    "type-check": "tsc --noEmit"
+    "test": "jest"
   },
   "dependencies": {
-    "@heroicons/react": "^2.2.0",
     "@sendgrid/mail": "8.1.4",
-    "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "lucide-react": "^0.323.0",
+    "isomorphic-dompurify": "2.22.0",
     "mongodb": "^5.9.2",
     "mongoose": "^8.0.3",
     "next": "14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.2.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "1.0.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^14.1.2",
     "@types/jest": "^29.5.11",
-    "@types/node": "^20",
-    "@types/react": "^18.2.48",
+    "@types/next": "8.0.7",
+    "@types/node": "20.17.19",
+    "@types/react": "18.3.18",
     "@types/react-dom": "^18.2.18",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "husky": "^8.0.3",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.4.33",
-    "prettier": "^3.1.1",
-    "prettier-plugin-tailwindcss": "^0.5.11",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "rsvp",
+    "nextjs",
+    "react",
+    "mongodb",
+    "tailwindcss"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/simple-rsvp-system"
   },
   "engines": {
     "node": ">=18.0.0"

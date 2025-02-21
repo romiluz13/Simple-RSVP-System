@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 const rsvpSchema = new mongoose.Schema({
   fullName: {
@@ -11,6 +12,7 @@ const rsvpSchema = new mongoose.Schema({
     required: [true, 'Email is required'],
     trim: true,
     lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
   },
   willAttend: {
     type: Boolean,
@@ -20,33 +22,40 @@ const rsvpSchema = new mongoose.Schema({
   guestCount: {
     type: Number,
     required: true,
-    min: 0,
+    min: [0, 'Guest count cannot be negative'],
     default: 1,
   },
-  submittedAt: {
+  managementToken: {
+    type: String,
+    required: true,
+    default: () => crypto.randomBytes(32).toString('hex'),
+    unique: true,
+  },
+  createdAt: {
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  }
 }, {
   toJSON: { getters: true },
   toObject: { getters: true }
 });
 
-// Remove all previous middleware
+// Update guest count based on attendance
 rsvpSchema.pre('save', function(next) {
-  const count = Number(this.guestCount);
-  if (this.willAttend) {
-    this.guestCount = isNaN(count) ? 1 : Math.max(1, count);
-  } else {
+  if (!this.willAttend) {
     this.guestCount = 0;
+  } else if (this.guestCount < 1) {
+    this.guestCount = 1;
   }
+  this.updatedAt = new Date();
   next();
 });
 
-// Clear existing model if it exists
-if (mongoose.models.RSVP) {
-  delete mongoose.models.RSVP;
-}
+// Clear existing model if it exists (helpful in development)
+const RSVP = mongoose.models.RSVP || mongoose.model('RSVP', rsvpSchema);
 
-// Create new model
-export const RSVP = mongoose.model('RSVP', rsvpSchema); 
+export { RSVP }; 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/db';
 import { RSVP } from '@/lib/models/rsvp';
-import { sendConfirmationEmail, sendReminderEmail } from '@/lib/email';
+import { sendConfirmationEmail, sendReminderEmail, sendAdminNotification } from '@/lib/email';
 
 // Event details from environment variables
 const eventDate = process.env.NEXT_PUBLIC_EVENT_DATE || '[Event Date]';
@@ -11,7 +11,7 @@ const venueAddress = process.env.NEXT_PUBLIC_VENUE_ADDRESS || '[Venue Address]';
 
 export async function GET(req: Request) {
   try {
-    await connectDB();
+    await connectToDatabase();
 
     // Get all RSVPs
     const rsvps = await RSVP.find({}).sort({ submittedAt: -1 });
@@ -43,86 +43,82 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    const { fullName, email, willAttend } = body;
-    
-    // Parse guest count strictly
-    let guestCount = 1; // Default to 1
-    if (body.guestCount) {
-      const parsed = parseInt(body.guestCount, 10);
-      if (!isNaN(parsed)) {
-        guestCount = parsed;
-      }
-    }
+    const body = await request.json();
+    console.log('📝 RSVP submission received:', body);
 
-    // Validate input
-    if (!fullName || !email) {
+    // Validate required fields
+    if (!body.fullName || !body.email) {
       return NextResponse.json(
         { error: 'Full name and email are required' },
         { status: 400 }
       );
     }
 
-    // Connect to MongoDB
-    await connectDB();
+    // Connect to database
+    await connectToDatabase();
+    console.log('✅ Connected to MongoDB');
 
-    // Create RSVP document
-    const rsvp = await RSVP.create({
-      fullName,
-      email,
-      willAttend,
-      guestCount: willAttend ? Math.max(1, guestCount) : 0
+    // Create new RSVP
+    const rsvp = new RSVP({
+      fullName: body.fullName,
+      email: body.email,
+      willAttend: body.willAttend,
+      guestCount: body.willAttend ? Math.max(1, body.guestCount || 1) : 0
     });
 
-    // Send confirmation email if attending
-    if (willAttend) {
-      try {
-        await sendConfirmationEmail({
-          fullName,
-          email,
-          eventDate,
-          eventTime,
-          venueName,
-          venueAddress,
-          guestCount: rsvp.guestCount,
-        });
+    // Save to database
+    await rsvp.save();
+    console.log('✅ RSVP saved to database:', rsvp);
 
-        // Schedule reminder email
-        const eventDateTime = new Date('2025-02-28T13:00:00');
-        const reminderTime = new Date(eventDateTime.getTime() - (24 * 60 * 60 * 1000));
-        const now = new Date();
-        
-        if (reminderTime > now) {
-          const timeoutMs = reminderTime.getTime() - now.getTime();
-          setTimeout(async () => {
-            try {
-              await sendReminderEmail({
-                fullName,
-                email,
-                eventDate,
-                eventTime,
-                venueName,
-                venueAddress,
-                guestCount: rsvp.guestCount,
-              });
-            } catch (reminderError) {
-              console.error('Failed to send reminder email:', reminderError);
-            }
-          }, timeoutMs);
+    // Send confirmation email if SendGrid is configured
+    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+      try {
+        // Send confirmation to guest
+        await sendConfirmationEmail({
+          fullName: body.fullName,
+          email: body.email,
+          eventDate: process.env.NEXT_PUBLIC_EVENT_DATE || '',
+          eventTime: process.env.NEXT_PUBLIC_EVENT_TIME || '',
+          venueName: process.env.NEXT_PUBLIC_VENUE_NAME || '',
+          venueAddress: process.env.NEXT_PUBLIC_VENUE_ADDRESS || '',
+          guestCount: rsvp.guestCount,
+          managementToken: rsvp.managementToken
+        });
+        console.log('✅ Confirmation email sent to guest');
+
+        // Send notification to admin
+        if (process.env.NOTIFICATION_EMAIL) {
+          await sendAdminNotification({
+            fullName: body.fullName,
+            email: body.email,
+            eventDate: process.env.NEXT_PUBLIC_EVENT_DATE || '',
+            eventTime: process.env.NEXT_PUBLIC_EVENT_TIME || '',
+            venueName: process.env.NEXT_PUBLIC_VENUE_NAME || '',
+            venueAddress: process.env.NEXT_PUBLIC_VENUE_ADDRESS || '',
+            guestCount: rsvp.guestCount,
+            willAttend: body.willAttend
+          });
+          console.log('✅ Notification email sent to admin');
         }
       } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
+        console.error('❌ Error sending emails:', emailError);
+        // Don't fail the RSVP if email fails
       }
+    } else {
+      console.log('ℹ️ SendGrid not configured, skipping emails');
     }
 
-    return NextResponse.json(
-      { message: 'RSVP submitted successfully', rsvp },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      message: 'RSVP submitted successfully',
+      rsvp: {
+        ...rsvp.toJSON(),
+        managementToken: undefined
+      }
+    });
   } catch (error) {
-    console.error('RSVP submission error:', error);
+    console.error('❌ RSVP submission error:', error);
     return NextResponse.json(
       { error: 'Failed to submit RSVP' },
       { status: 500 }

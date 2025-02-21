@@ -1,8 +1,12 @@
 import sgMail from '@sendgrid/mail';
+import { defaultTemplates } from './templates/defaultTemplates';
+import { renderEmailTemplate } from './utils/emailTemplates';
+import { formatDate, formatTime } from './utils/dateTime';
+import type { Component } from './utils/emailTemplates';
 
 // Initialize SendGrid with API key
 if (!process.env.SENDGRID_API_KEY) {
-  throw new Error('SENDGRID_API_KEY is not set in environment variables');
+  throw new Error('SENDGRID_API_KEY environment variable is not set');
 }
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -13,93 +17,119 @@ interface EmailData {
   eventTime: string;
   venueName: string;
   venueAddress: string;
-  guestCount: number;
+  guestCount?: number;
+  managementToken?: string;
 }
 
-export async function sendConfirmationEmail(data: EmailData) {
-  const msg = {
-    to: data.email,
-    from: process.env.SENDGRID_FROM_EMAIL || 'rom@iluz.net',
-    subject: 'אישור הגעה - חגיגה של הדסה ואוסקר',
-    html: `
-      <div style="font-family: 'Heebo', Arial, sans-serif; max-width: 600px; margin: 0 auto; direction: rtl; text-align: right;">
-        <h1 style="color: #B45309; text-align: center;">תודה על אישור ההגעה!</h1>
-        <p>שלום ${data.fullName},</p>
-        <p>תודה שאישרת את הגעתך לחגוג עם הדסה ואוסקר!</p>
-        <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h2 style="color: #B45309; margin-top: 0;">פרטי האירוע</h2>
-          <p><strong>מספר אורחים:</strong> ${data.guestCount} 👥</p>
-          <p><strong>תאריך:</strong> ${data.eventDate}</p>
-          <p><strong>שעה:</strong> ${data.eventTime}</p>
-          <p><strong>מקום:</strong> ${data.venueName}</p>
-          <p><strong>כתובת:</strong> ${data.venueAddress}</p>
-          <p><strong>תפריט:</strong> תפריט יווני אמיתי 🇬🇷</p>
-        </div>
-        <p>נשמח לראותך באירוע המיוחד הזה!</p>
-        <p>בברכה,<br>המשפחה</p>
-      </div>
-    `,
+interface AdminNotificationData extends EmailData {
+  willAttend: boolean;
+}
+
+export const sendConfirmationEmail = async (data: EmailData) => {
+  const template = defaultTemplates.confirmation;
+  const managementLink = data.managementToken ? 
+    `${process.env.NEXT_PUBLIC_APP_URL}/manage-rsvp/${data.managementToken}` : 
+    undefined;
+
+  const templateData = {
+    ...data,
+    managementLink
   };
 
-  try {
-    // Log DNS resolution attempt
-    console.log('Attempting to resolve api.sendgrid.com...');
-    
-    // Add request timeout
-    const response = await sgMail.send(msg);
-    console.log('Email sent successfully:', response);
-    return response;
-  } catch (error: any) {
-    console.error('Error sending confirmation email:', error);
-    
-    // Enhanced error logging
-    if (error.code === 'ENOTFOUND') {
-      console.error('DNS resolution failed. This could be due to:');
-      console.error('1. Network connectivity issues');
-      console.error('2. DNS server problems');
-      console.error('3. VPN or firewall blocking the connection');
-    }
-    
-    if (error.response) {
-      console.error('SendGrid API response error:', {
-        status: error.response.status,
-        body: error.response.body,
-      });
-    }
-    
-    throw error;
-  }
-}
-
-export async function sendReminderEmail(data: EmailData) {
   const msg = {
     to: data.email,
-    from: process.env.SENDGRID_FROM_EMAIL || 'your-verified-sender@example.com',
-    subject: 'תזכורת: חגיגה של הדסה ואוסקר מחר!',
-    html: `
-      <div style="font-family: 'Heebo', Arial, sans-serif; max-width: 600px; margin: 0 auto; direction: rtl; text-align: right;">
-        <h1 style="color: #B45309; text-align: center;">תזכורת לאירוע</h1>
-        <p>שלום ${data.fullName},</p>
-        <p>זוהי תזכורת ידידותית שמחר מתקיימת החגיגה של הדסה ואוסקר!</p>
-        <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h2 style="color: #B45309; margin-top: 0;">פרטי האירוע</h2>
-          <p><strong>מספר אורחים:</strong> ${data.guestCount} 👥</p>
-          <p><strong>תאריך:</strong> ${data.eventDate}</p>
-          <p><strong>שעה:</strong> ${data.eventTime}</p>
-          <p><strong>מקום:</strong> ${data.venueName}</p>
-          <p><strong>כתובת:</strong> ${data.venueAddress}</p>
-          <p><strong>תפריט:</strong> תפריט יווני אמיתי 🇬🇷</p>
-        </div>
-        <p>נשמח לראותך מחר!</p>
-        <p>בברכה,<br>המשפחה</p>
-      </div>
-    `,
+    from: process.env.FROM_EMAIL as string,
+    subject: template.subject,
+    html: renderEmailTemplate(
+      template.components,
+      template.layout,
+      template.theme,
+      templateData
+    )
   };
 
   try {
     await sgMail.send(msg);
+    console.log('Confirmation email sent successfully');
+  } catch (error) {
+    console.error('Error sending confirmation email:', error);
+    throw error;
+  }
+};
+
+export const sendReminderEmail = async (data: EmailData) => {
+  const template = defaultTemplates.reminder;
+  
+  const msg = {
+    to: data.email,
+    from: process.env.FROM_EMAIL as string,
+    subject: template.subject,
+    html: renderEmailTemplate(
+      template.components,
+      template.layout,
+      template.theme,
+      data
+    )
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log('Reminder email sent successfully');
   } catch (error) {
     console.error('Error sending reminder email:', error);
     throw error;
   }
-} 
+};
+
+export const sendAdminNotification = async (data: EmailData & { willAttend: boolean }) => {
+  const subject = `New RSVP: ${data.fullName} - ${data.willAttend ? 'Attending' : 'Not Attending'}`;
+  
+  const components: Component[] = [
+    {
+      type: 'header',
+      content: 'New RSVP Received',
+      style: 'primary'
+    },
+    {
+      type: 'text',
+      content: `${data.fullName} has ${data.willAttend ? 'confirmed' : 'declined'} their attendance.`,
+      style: 'primary'
+    },
+    {
+      type: 'eventDetails',
+      content: '',
+      style: 'secondary'
+    },
+    {
+      type: 'text',
+      content: `Guest Email: ${data.email}`,
+      style: 'secondary'
+    },
+    {
+      type: 'button',
+      content: `View Admin Dashboard|${process.env.NEXT_PUBLIC_APP_URL}/admin`,
+      style: 'accent'
+    }
+  ];
+
+  const msg = {
+    to: process.env.NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL,
+    from: process.env.FROM_EMAIL as string,
+    subject,
+    html: renderEmailTemplate(
+      components,
+      'default',
+      defaultTemplates.confirmation.theme,
+      data
+    )
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log('Admin notification sent successfully');
+  } catch (error) {
+    console.error('Error sending admin notification:', error);
+    // Don't throw the error as this is a notification
+    // and shouldn't block the main flow
+  }
+}; 
