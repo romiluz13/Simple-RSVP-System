@@ -127,6 +127,27 @@ const layouts = {
     </html>
   `,
   
+  minimal: (content: string, theme: Theme): string => `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                   line-height: 1.4;
+                   margin: 0;
+                   padding: 0;
+                   background-color: white;">
+        <div style="max-width: 500px;
+                    margin: 0 auto;
+                    padding: 16px;">
+          ${content}
+        </div>
+      </body>
+    </html>
+  `,
+  
   elegant: (content: string, theme: Theme): string => `
     <!DOCTYPE html>
     <html>
@@ -154,7 +175,7 @@ const layouts = {
 
 export const renderEmailTemplate = (
   components: Component[], 
-  layout: 'default' | 'elegant',
+  layout: 'default' | 'minimal' | 'elegant',
   theme: Theme,
   data: TemplateData
 ): string => {

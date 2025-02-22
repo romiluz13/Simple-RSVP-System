@@ -1,7 +1,5 @@
-
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/db';
-import mongoose from 'mongoose';
+import { connectToDatabase, mongoose } from '@/lib/database';
 
 export async function GET() {
   try {
@@ -18,15 +16,30 @@ export async function GET() {
     
     return NextResponse.json({
       status: 'healthy',
-      mongodb: 'connected',
-      collections: collections.map(c => c.name)
+      mongodb: {
+        status: 'connected',
+        readyState: mongoose.connection.readyState,
+        collections: collections.map(c => c.name)
+      },
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        hasMongoUri: !!process.env.MONGODB_URI,
+        hasSendGrid: !!process.env.SENDGRID_API_KEY,
+        hasEventDetails: !!(
+          process.env.NEXT_PUBLIC_EVENT_DATE &&
+          process.env.NEXT_PUBLIC_EVENT_TIME &&
+          process.env.NEXT_PUBLIC_VENUE_NAME &&
+          process.env.NEXT_PUBLIC_VENUE_ADDRESS
+        )
+      }
     });
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
+    console.error('❌ Health check failed:', error);
     return NextResponse.json(
       { 
         status: 'unhealthy',
-        error: error instanceof Error ? error.message : 'Failed to connect to MongoDB'
+        error: error instanceof Error ? error.message : 'Failed to connect to MongoDB',
+        details: error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     );

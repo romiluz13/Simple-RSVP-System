@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/database';
 import { Template, ITemplate } from '@/lib/models/Template';
 import { defaultTemplates } from '@/lib/templates/defaultTemplates';
 

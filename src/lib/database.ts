@@ -1,25 +1,23 @@
 import mongoose from 'mongoose';
 
+// Global interface for mongoose connection
+interface GlobalMongoose {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
+
+// Declare global mongoose type
+declare global {
+  var mongoose: GlobalMongoose | undefined;
+}
+
 if (!process.env.MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable');
 }
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-/**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections growing exponentially
- * during API Route usage.
- */
-interface GlobalMongoose {
-  conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
-}
-
-declare global {
-  var mongoose: GlobalMongoose | undefined;
-}
-
+// Global cached connection
 const cached: GlobalMongoose = global.mongoose || { conn: null, promise: null };
 
 if (!global.mongoose) {
@@ -28,11 +26,13 @@ if (!global.mongoose) {
 
 export async function connectToDatabase() {
   try {
+    // If we have a cached connection, return it
     if (cached.conn) {
       console.log('📊 Using cached database connection');
       return cached.conn;
     }
 
+    // If we don't have a cached connection but have a connecting promise, wait for it
     if (!cached.promise) {
       const opts = {
         bufferCommands: false,
@@ -48,8 +48,7 @@ export async function connectToDatabase() {
         uri: MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@') // Hide credentials in logs
       });
 
-      mongoose.set('debug', true); // Enable debug logging
-      
+      mongoose.set('debug', process.env.NODE_ENV === 'development');
       cached.promise = mongoose.connect(MONGODB_URI, opts);
     }
 
@@ -67,26 +66,29 @@ export async function connectToDatabase() {
         name: mongoose.connection.name
       });
 
-      // List collections
-      if (mongoose.connection.db) {
+      // List collections in development
+      if (process.env.NODE_ENV === 'development' && mongoose.connection.db) {
         const collections = await mongoose.connection.db.listCollections().toArray();
         console.log('📚 Available collections:', collections.map(c => c.name));
       }
 
       return cached.conn;
-    } catch (e) {
+    } catch (error) {
       cached.promise = null;
       console.error('❌ MongoDB connection error:', {
-        error: e instanceof Error ? e.message : 'Unknown error',
-        stack: e instanceof Error ? e.stack : undefined
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
       });
-      throw e;
+      throw error;
     }
   } catch (error) {
     console.error('❌ Database connection error:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
-    throw new Error('Failed to connect to database');
+    throw error;
   }
-} 
+}
+
+// Export the mongoose instance for direct access when needed
+export { mongoose }; 

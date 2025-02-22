@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/database';
 import { RSVP } from '@/lib/models/rsvp';
 import { sendReminderEmail } from '@/lib/email';
 
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     }
 
     // Connect to MongoDB
-    await connectDB();
+    await connectToDatabase();
 
     // Get all attending RSVPs
     const rsvps = await RSVP.find({ willAttend: true });

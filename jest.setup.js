@@ -61,7 +61,7 @@ jest.mock('next/headers', () => ({
 }));
 
 // Mock MongoDB
-jest.mock('@/lib/mongodb', () => ({
+jest.mock('@/lib/database', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => Promise.resolve({
     connection: {

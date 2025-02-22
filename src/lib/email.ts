@@ -82,31 +82,41 @@ export const sendReminderEmail = async (data: EmailData) => {
 };
 
 export const sendAdminNotification = async (data: EmailData & { willAttend: boolean }) => {
-  const subject = `New RSVP: ${data.fullName} - ${data.willAttend ? 'Attending' : 'Not Attending'}`;
+  const subject = `RSVP Update: ${data.fullName} - ${data.willAttend ? 'Attending' : 'Not Attending'}`;
   
   const components: Component[] = [
     {
-      type: 'header',
-      content: 'New RSVP Received',
+      type: 'header' as const,
+      content: `RSVP ${data.willAttend ? 'Confirmation' : 'Update'} Received`,
       style: 'primary'
     },
     {
-      type: 'text',
-      content: `${data.fullName} has ${data.willAttend ? 'confirmed' : 'declined'} their attendance.`,
+      type: 'text' as const,
+      content: `${data.fullName} has ${data.willAttend ? 'confirmed attendance' : 'updated their RSVP'} for the event.`,
       style: 'primary'
     },
     {
-      type: 'eventDetails',
+      type: 'text' as const,
+      content: `Status: ${data.willAttend ? '✅ Attending' : '❌ Not Attending'}`,
+      style: 'secondary'
+    },
+    {
+      type: 'text' as const,
+      content: `Guest Count: ${data.guestCount}`,
+      style: 'secondary'
+    },
+    {
+      type: 'text' as const,
+      content: `Contact Email: ${data.email}`,
+      style: 'secondary'
+    },
+    {
+      type: 'eventDetails' as const,
       content: '',
       style: 'secondary'
     },
     {
-      type: 'text',
-      content: `Guest Email: ${data.email}`,
-      style: 'secondary'
-    },
-    {
-      type: 'button',
+      type: 'button' as const,
       content: `View Admin Dashboard|${process.env.NEXT_PUBLIC_APP_URL}/admin`,
       style: 'accent'
     }
