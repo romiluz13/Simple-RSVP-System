@@ -80,9 +80,15 @@ export default function ManageRSVP() {
     }
   };
 
+  const handleGuestCountChange = (newCount: number) => {
+    // Ensure count is at least 1
+    const finalCount = Math.max(1, newCount);
+    setGuestCount(finalCount);
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
       </div>
     );
@@ -90,69 +96,73 @@ export default function ManageRSVP() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-gray-800 p-6 rounded-lg border border-red-500/20 max-w-md w-full">
-          <h1 className="text-xl font-semibold text-red-400 mb-4">Error</h1>
-          <p className="text-gray-300">{error}</p>
-          <button
-            onClick={() => router.push('/')}
-            className="mt-6 w-full px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
-          >
-            Return to Home
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+          <div className="text-red-500 text-center">
+            <h2 className="text-xl font-semibold mb-4">Error</h2>
+            <p>{error}</p>
+          </div>
         </div>
       </div>
     );
   }
 
   if (!rsvp) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+          <div className="text-amber-500 text-center">
+            <h2 className="text-xl font-semibold mb-4">RSVP Not Found</h2>
+            <p>This RSVP link appears to be invalid or has expired.</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {isPreview && (
-          <div className="mb-6 p-4 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-200">
-            <p className="font-semibold">🔍 Preview Mode</p>
-            <p className="text-sm mt-1">This is a preview of the RSVP management interface. Changes made here won't be saved.</p>
-          </div>
-        )}
+    <div className="min-h-screen bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md mx-auto">
+        <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+          <div className="p-6 sm:p-8">
+            <h2 className="text-2xl font-bold text-white mb-6 text-center">
+              Manage Your RSVP
+            </h2>
 
-        <div className="bg-gray-800 rounded-lg border border-amber-500/20 p-6">
-          <h1 className="text-2xl font-bold text-amber-500 mb-6">Manage Your RSVP</h1>
-          
-          {successMessage && (
-            <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-lg text-green-200">
-              {successMessage}
-            </div>
-          )}
-
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-semibold text-white mb-2">Current RSVP Details</h2>
-              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
-                <p className="text-gray-300">
-                  <span className="font-medium text-white">Name:</span> {rsvp.fullName}
-                </p>
-                <p className="text-gray-300">
-                  <span className="font-medium text-white">Email:</span> {rsvp.email}
-                </p>
-                <p className="text-gray-300">
-                  <span className="font-medium text-white">Status:</span>{' '}
-                  {rsvp.willAttend ? '✅ Attending' : '❌ Not Attending'}
-                </p>
-                {rsvp.willAttend && (
-                  <p className="text-gray-300">
-                    <span className="font-medium text-white">Guests:</span> {rsvp.guestCount}
-                  </p>
-                )}
+            {successMessage && (
+              <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-lg">
+                <p className="text-green-200 text-center">{successMessage}</p>
               </div>
-            </div>
+            )}
 
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-white">Update Your RSVP</h2>
-              
+            {error && (
+              <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
+                <p className="text-red-200 text-center">{error}</p>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-2">Current RSVP Details</h2>
+                <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                  <p className="text-gray-300">
+                    <span className="font-medium text-white">Name:</span> {rsvp.fullName}
+                  </p>
+                  <p className="text-gray-300">
+                    <span className="font-medium text-white">Email:</span> {rsvp.email}
+                  </p>
+                  <p className="text-gray-300">
+                    <span className="font-medium text-white">Status:</span>{' '}
+                    {rsvp.willAttend ? '✅ Attending' : '❌ Not Attending'}
+                  </p>
+                  {rsvp.willAttend && (
+                    <p className="text-gray-300">
+                      <span className="font-medium text-white">Guests:</span> {rsvp.guestCount}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-amber-100">
                   Will you be joining us? 🎊
@@ -188,15 +198,29 @@ export default function ManageRSVP() {
                   <label className="block text-sm font-medium text-amber-100 mb-2">
                     Number of Guests 👥
                   </label>
-                  <div className="flex items-center justify-center space-x-4">
+                  <div className="flex items-center justify-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => handleGuestCountChange(guestCount - 1)}
+                      className="w-10 h-10 rounded-lg bg-gray-700 border border-amber-500/30 text-white hover:bg-gray-600 transition-colors flex items-center justify-center text-lg font-medium"
+                    >
+                      -
+                    </button>
                     <input
                       type="number"
                       min="1"
                       value={guestCount}
-                      onChange={(e) => setGuestCount(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-24 px-4 py-2 bg-gray-700 border border-amber-500/30 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white text-center"
+                      onChange={(e) => handleGuestCountChange(parseInt(e.target.value) || 1)}
+                      className="w-20 h-10 px-2 bg-gray-700 border border-amber-500/30 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white text-center"
                     />
-                    <span className="text-amber-100/70">guests</span>
+                    <button
+                      type="button"
+                      onClick={() => handleGuestCountChange(guestCount + 1)}
+                      className="w-10 h-10 rounded-lg bg-gray-700 border border-amber-500/30 text-white hover:bg-gray-600 transition-colors flex items-center justify-center text-lg font-medium"
+                    >
+                      +
+                    </button>
+                    <span className="text-amber-100/70 ml-2">guests</span>
                   </div>
                 </div>
               )}
