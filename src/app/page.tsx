@@ -151,6 +151,7 @@ export default function Home() {
               src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30"
               alt="Event Celebration"
               fill
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover"
               priority
             />

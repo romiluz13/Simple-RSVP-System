@@ -23,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="he" dir="rtl" className="dark">
-      <body className={heebo.className}>
+    <html lang="he" dir="rtl" className="dark" suppressHydrationWarning>
+      <body className={heebo.className} suppressHydrationWarning>
         <Nav />
         <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
           {children}
