@@ -175,39 +175,43 @@ export default function AdminDashboard() {
           <table className="min-w-full divide-y divide-gray-700">
             <thead className="bg-gray-700">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-[120px]">
-                  Actions
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  Email
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-[120px]">
-                  Date
+                  Status
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-[150px]">
                   Guests
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-[120px]">
-                  Status
+                  Date
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Name
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-[120px]">
+                  Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-gray-800 divide-y divide-gray-700">
               {guests.map((guest) => (
                 <tr key={guest._id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => handleDelete(guest._id)}
-                      className="text-red-400 hover:text-red-300 px-2"
-                    >
-                      Delete
-                    </button>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                    {guest.fullName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {formatDate(guest.createdAt, dateFormat)} {formatTime(guest.createdAt, timeFormat)}
+                    {guest.email}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      guest.willAttend
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {guest.willAttend ? 'Attending' : 'Not Attending'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                     {editingGuest?.id === guest._id ? (
@@ -247,20 +251,16 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      guest.willAttend
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {guest.willAttend ? 'Attending' : 'Not Attending'}
-                    </span>
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {guest.email}
+                    {formatDate(guest.createdAt, dateFormat)} {formatTime(guest.createdAt, timeFormat)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                    {guest.fullName}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      onClick={() => handleDelete(guest._id)}
+                      className="text-red-400 hover:text-red-300 px-2"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
