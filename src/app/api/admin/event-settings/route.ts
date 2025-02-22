@@ -32,12 +32,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
+    console.log('Received data:', data); // Debug log
+
     await connectToDatabase();
 
-    // Validate required fields
-    if (!data.title || !data.date || !data.time || !data.venueName || !data.venueAddress) {
+    // Validate required fields with detailed error message
+    const requiredFields = ['title', 'date', 'time', 'venueName', 'venueAddress'];
+    const missingFields = requiredFields.filter(field => !data[field]);
+    
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields); // Debug log
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { 
+          error: `Missing required fields: ${missingFields.join(', ')}`,
+          missingFields 
+        },
         { status: 400 }
       );
     }
@@ -60,11 +69,15 @@ export async function POST(request: Request) {
       }
     );
 
+    console.log('Updated settings:', settings); // Debug log
     return NextResponse.json(settings);
   } catch (error) {
     console.error('Error updating event settings:', error);
     return NextResponse.json(
-      { error: 'Failed to update event settings' },
+      { 
+        error: 'Failed to update event settings',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

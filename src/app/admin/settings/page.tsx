@@ -50,6 +50,7 @@ export default function Settings() {
 
   useEffect(() => {
     fetchSettings();
+    fetchEventSettings();
     // Load saved formats on mount
     const savedDateFormat = localStorage.getItem('dateFormat') as DateFormat;
     const savedTimeFormat = localStorage.getItem('timeFormat') as TimeFormat;
@@ -79,6 +80,23 @@ export default function Settings() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchEventSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/event-settings');
+      if (!response.ok) {
+        throw new Error('Failed to fetch event settings');
+      }
+      const data = await response.json();
+      setEventSettings(data);
+    } catch (error) {
+      console.error('Error fetching event settings:', error);
+      setStatus({
+        type: 'error',
+        message: 'Failed to load event settings'
+      });
     }
   };
 
@@ -259,12 +277,26 @@ export default function Settings() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    setStatus({
-      type: null,
-      message: ''
-    });
+    setStatus({ type: null, message: '' });
 
     try {
+      // Validate required fields
+      const requiredFields = {
+        title: 'Event Title',
+        date: 'Event Date',
+        time: 'Event Time',
+        venueName: 'Venue Name',
+        venueAddress: 'Venue Address'
+      };
+
+      const missingFields = Object.entries(requiredFields)
+        .filter(([key]) => !eventSettings[key as keyof EventSettings])
+        .map(([, label]) => label);
+
+      if (missingFields.length > 0) {
+        throw new Error(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      }
+
       const response = await fetch('/api/admin/event-settings', {
         method: 'POST',
         headers: {
@@ -273,15 +305,21 @@ export default function Settings() {
         body: JSON.stringify(eventSettings),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.error || 'Failed to save settings');
       }
 
       setStatus({
         type: 'success',
-        message: 'Settings saved successfully! Please refresh the page to see the changes.'
+        message: 'Settings saved successfully! The page will refresh in 2 seconds.'
       });
+
+      // Refresh the page after 2 seconds to show the changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       setStatus({
         type: 'error',
@@ -353,7 +391,9 @@ export default function Settings() {
               value={eventSettings.title}
               onChange={(e) => setEventSettings(prev => ({ ...prev, title: e.target.value }))}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+              placeholder="Enter your event title"
             />
+            <p className="mt-1 text-sm text-gray-400">This title appears in both the navigation bar and main page</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
