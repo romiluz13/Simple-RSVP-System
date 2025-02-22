@@ -104,9 +104,18 @@ export default function Settings() {
 
   const validateImageUrl = async (url: string): Promise<boolean> => {
     try {
-      const response = await fetch(url, { method: 'HEAD' });
-      const contentType = response.headers.get('content-type');
-      return contentType?.startsWith('image/') || false;
+      // Check if it's an Unsplash image
+      if (url.includes('unsplash.com')) {
+        return true;
+      }
+
+      // For other URLs, create an image element to test loading
+      return new Promise<boolean>((resolve) => {
+        const img = new window.Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
     } catch {
       return false;
     }
