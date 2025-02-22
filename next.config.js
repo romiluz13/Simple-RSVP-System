@@ -1,7 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['images.unsplash.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+    domains: [
+      'images.unsplash.com',
+      'plus.unsplash.com',
+      'picsum.photos',
+    ],
   },
   reactStrictMode: true,
   swcMinify: true,

@@ -2,7 +2,9 @@ import sgMail from '@sendgrid/mail';
 import { defaultTemplates } from './templates/defaultTemplates';
 import { renderEmailTemplate } from './utils/emailTemplates';
 import { formatDate, formatTime } from './utils/dateTime';
-import type { Component } from './utils/emailTemplates';
+import type { Component, Theme } from './utils/emailTemplates';
+import { Template, ITemplate } from './models/Template';
+import { connectToDatabase } from './database';
 
 // Initialize SendGrid with API key
 if (!process.env.SENDGRID_API_KEY) {
@@ -25,8 +27,26 @@ interface AdminNotificationData extends EmailData {
   willAttend: boolean;
 }
 
+interface EmailTemplate {
+  subject: string;
+  layout: 'default' | 'minimal' | 'elegant';
+  components: Component[];
+  theme: Theme;
+}
+
+async function getEmailTemplate(type: 'confirmation' | 'reminder'): Promise<EmailTemplate> {
+  try {
+    await connectToDatabase();
+    const templates = await Template.findOne({ name: 'default' }).lean() as ITemplate | null;
+    return templates ? templates[type] : defaultTemplates[type];
+  } catch (error) {
+    console.warn('Failed to fetch template from database, using default:', error);
+    return defaultTemplates[type];
+  }
+}
+
 export const sendConfirmationEmail = async (data: EmailData) => {
-  const template = defaultTemplates.confirmation;
+  const template = await getEmailTemplate('confirmation');
   const managementLink = data.managementToken ? 
     `${process.env.NEXT_PUBLIC_APP_URL}/manage-rsvp/${data.managementToken}` : 
     undefined;
@@ -58,7 +78,7 @@ export const sendConfirmationEmail = async (data: EmailData) => {
 };
 
 export const sendReminderEmail = async (data: EmailData) => {
-  const template = defaultTemplates.reminder;
+  const template = await getEmailTemplate('reminder');
   
   const msg = {
     to: data.email,
@@ -81,55 +101,44 @@ export const sendReminderEmail = async (data: EmailData) => {
   }
 };
 
-export const sendAdminNotification = async (data: EmailData & { willAttend: boolean }) => {
+export const sendAdminNotification = async (data: AdminNotificationData) => {
   const subject = `RSVP Update: ${data.fullName} - ${data.willAttend ? 'Attending' : 'Not Attending'}`;
   
   const components: Component[] = [
     {
-      type: 'header' as const,
+      type: 'header',
       content: `RSVP ${data.willAttend ? 'Confirmation' : 'Update'} Received`,
       style: 'primary'
-    },
+    } as Component,
     {
-      type: 'text' as const,
+      type: 'text',
       content: `${data.fullName} has ${data.willAttend ? 'confirmed attendance' : 'updated their RSVP'} for the event.`,
       style: 'primary'
-    },
+    } as Component,
     {
-      type: 'text' as const,
+      type: 'text',
       content: `Status: ${data.willAttend ? '✅ Attending' : '❌ Not Attending'}`,
       style: 'secondary'
-    },
+    } as Component,
     {
-      type: 'text' as const,
-      content: `Guest Count: ${data.guestCount}`,
-      style: 'secondary'
-    },
-    {
-      type: 'text' as const,
-      content: `Contact Email: ${data.email}`,
-      style: 'secondary'
-    },
-    {
-      type: 'eventDetails' as const,
+      type: 'eventDetails',
       content: '',
       style: 'secondary'
-    },
-    {
-      type: 'button' as const,
-      content: `View Admin Dashboard|${process.env.NEXT_PUBLIC_APP_URL}/admin`,
-      style: 'accent'
-    }
+    } as Component
   ];
 
   const msg = {
-    to: process.env.NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL,
+    to: process.env.NOTIFICATION_EMAIL as string,
     from: process.env.FROM_EMAIL as string,
     subject,
     html: renderEmailTemplate(
       components,
-      'default',
-      defaultTemplates.confirmation.theme,
+      'minimal',
+      {
+        primaryColor: '#B45309',
+        secondaryColor: '#1F2937',
+        accentColor: '#D97706'
+      },
       data
     )
   };
@@ -139,7 +148,6 @@ export const sendAdminNotification = async (data: EmailData & { willAttend: bool
     console.log('Admin notification sent successfully');
   } catch (error) {
     console.error('Error sending admin notification:', error);
-    // Don't throw the error as this is a notification
-    // and shouldn't block the main flow
+    throw error;
   }
 }; 

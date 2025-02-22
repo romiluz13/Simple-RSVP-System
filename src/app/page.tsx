@@ -5,13 +5,6 @@ import Image from 'next/image';
 import { generateGoogleCalendarUrl, generateICSFile } from '@/lib/utils';
 import { formatDate, formatTime, DateFormat, TimeFormat } from '@/lib/utils/date';
 
-// Event details from environment variables
-const eventDate = process.env.NEXT_PUBLIC_EVENT_DATE || '[Event Date]';
-const eventTime = process.env.NEXT_PUBLIC_EVENT_TIME || '[Event Time]';
-const venueName = process.env.NEXT_PUBLIC_VENUE_NAME || '[Venue Name]';
-const venueAddress = process.env.NEXT_PUBLIC_VENUE_ADDRESS || '[Venue Address]';
-const eventTitle = process.env.NEXT_PUBLIC_EVENT_TITLE || 'You\'re Invited!';
-
 interface FormData {
   fullName: string;
   email: string;
@@ -28,6 +21,21 @@ interface StatusState {
   };
 }
 
+interface ImageSettings {
+  imageUrl: string;
+  altText: string;
+}
+
+interface EventSettings {
+  title: string;
+  date: string;
+  time: string;
+  venueName: string;
+  venueAddress: string;
+}
+
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30';
+
 export default function Home() {
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -39,6 +47,17 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dateFormat, setDateFormat] = useState<DateFormat>('US');
   const [timeFormat, setTimeFormat] = useState<TimeFormat>('24h');
+  const [imageSettings, setImageSettings] = useState<ImageSettings>({
+    imageUrl: DEFAULT_IMAGE,
+    altText: 'Event Celebration'
+  });
+  const [eventSettings, setEventSettings] = useState<EventSettings>({
+    title: process.env.NEXT_PUBLIC_EVENT_TITLE || 'Event',
+    date: process.env.NEXT_PUBLIC_EVENT_DATE || '',
+    time: process.env.NEXT_PUBLIC_EVENT_TIME || '',
+    venueName: process.env.NEXT_PUBLIC_VENUE_NAME || '',
+    venueAddress: process.env.NEXT_PUBLIC_VENUE_ADDRESS || ''
+  });
 
   useEffect(() => {
     // Load format preferences
@@ -46,7 +65,31 @@ export default function Home() {
     const savedTimeFormat = localStorage.getItem('timeFormat') as TimeFormat;
     if (savedDateFormat) setDateFormat(savedDateFormat);
     if (savedTimeFormat) setTimeFormat(savedTimeFormat);
+
+    // Fetch settings
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      // Fetch image settings
+      const imageResponse = await fetch('/api/admin/image-settings');
+      if (!imageResponse.ok) throw new Error('Failed to fetch image settings');
+      const imageData = await imageResponse.json();
+      setImageSettings({
+        imageUrl: imageData.imageUrl,
+        altText: imageData.altText
+      });
+
+      // Fetch event settings
+      const eventResponse = await fetch('/api/admin/event-settings');
+      if (!eventResponse.ok) throw new Error('Failed to fetch event settings');
+      const eventData = await eventResponse.json();
+      setEventSettings(eventData);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -76,23 +119,23 @@ export default function Home() {
       // Generate calendar links
       const calendarData = {
         googleUrl: generateGoogleCalendarUrl({
-          eventDate,
-          eventTime,
-          venueName,
-          venueAddress,
+          eventDate: eventSettings.date,
+          eventTime: eventSettings.time,
+          venueName: eventSettings.venueName,
+          venueAddress: eventSettings.venueAddress,
           guestCount: submissionData.guestCount
         }),
         icsContent: generateICSFile({
-          eventDate,
-          eventTime,
-          venueName,
-          venueAddress,
+          eventDate: eventSettings.date,
+          eventTime: eventSettings.time,
+          venueName: eventSettings.venueName,
+          venueAddress: eventSettings.venueAddress,
           guestCount: submissionData.guestCount
         })
       };
 
-      const formattedDate = formatDate(eventDate, dateFormat);
-      const formattedTime = formatTime(eventTime, timeFormat);
+      const formattedDate = formatDate(eventSettings.date, dateFormat);
+      const formattedTime = formatTime(eventSettings.time, timeFormat);
 
       setStatus({
         type: 'success',
@@ -127,12 +170,20 @@ export default function Home() {
     }));
   };
 
+  const handleImageError = () => {
+    console.error('Failed to load image, falling back to default');
+    setImageSettings(prev => ({
+      ...prev,
+      imageUrl: DEFAULT_IMAGE
+    }));
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-gray-900" dir="ltr">
       {/* Title Section - Spans full width */}
       <div className="relative z-10 pt-20 pb-12 text-center">
         <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-200 drop-shadow-lg px-4">
-          {eventTitle}
+          {eventSettings.title}
         </h1>
         <p className="text-lg md:text-xl text-amber-100/90 mb-2">
           Join us for a special celebration
@@ -148,12 +199,13 @@ export default function Home() {
           {/* Left Side - Photo */}
           <div className="relative h-full min-h-[600px] rounded-2xl overflow-hidden shadow-2xl order-1 md:order-none">
             <Image
-              src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30"
-              alt="Event Celebration"
+              src={imageSettings.imageUrl}
+              alt={imageSettings.altText}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover"
               priority
+              onError={handleImageError}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 via-transparent to-transparent"></div>
           </div>
@@ -168,17 +220,17 @@ export default function Home() {
               <div className="space-y-5">
                 <div className="flex items-center space-x-4 text-lg">
                   <span className="text-2xl">📅</span>
-                  <p className="text-amber-100">{formatDate(eventDate, dateFormat)}</p>
+                  <p className="text-amber-100">{formatDate(eventSettings.date, dateFormat)}</p>
                 </div>
                 <div className="flex items-center space-x-4 text-lg">
                   <span className="text-2xl">⏰</span>
-                  <p className="text-amber-100">{formatTime(eventTime, timeFormat)}</p>
+                  <p className="text-amber-100">{formatTime(eventSettings.time, timeFormat)}</p>
                 </div>
                 <div className="flex items-center space-x-4 text-lg">
                   <span className="text-2xl">🎉</span>
                   <div>
-                    <p className="text-amber-100">{venueName}</p>
-                    <p className="text-amber-100/70 text-base">{venueAddress}</p>
+                    <p className="text-amber-100">{eventSettings.venueName}</p>
+                    <p className="text-amber-100/70 text-base">{eventSettings.venueAddress}</p>
                   </div>
                 </div>
               </div>

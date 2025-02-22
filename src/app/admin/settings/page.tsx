@@ -1,7 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { formatDate, formatTime, DateFormat, TimeFormat } from '@/lib/utils/date';
+import Image from 'next/image';
+
+interface ImageSettings {
+  imageUrl: string;
+  altText: string;
+  isUploaded: boolean;
+  updatedAt: string;
+}
 
 interface EventSettings {
   title: string;
@@ -11,17 +19,32 @@ interface EventSettings {
   venueAddress: string;
 }
 
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30';
+
 export default function Settings() {
-  const [settings, setSettings] = useState<EventSettings>({
-    title: '',
-    date: '',
-    time: '',
-    venueName: '',
-    venueAddress: '',
+  // Image settings state
+  const [imageSettings, setImageSettings] = useState<ImageSettings | null>(null);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [newAltText, setNewAltText] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Event settings state
+  const [eventSettings, setEventSettings] = useState<EventSettings>({
+    title: process.env.NEXT_PUBLIC_EVENT_TITLE || '',
+    date: process.env.NEXT_PUBLIC_EVENT_DATE || '',
+    time: process.env.NEXT_PUBLIC_EVENT_TIME || '',
+    venueName: process.env.NEXT_PUBLIC_VENUE_NAME || '',
+    venueAddress: process.env.NEXT_PUBLIC_VENUE_ADDRESS || '',
   });
+
+  // UI state
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [status, setStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({
+    type: null,
+    message: ''
+  });
   const [dateFormat, setDateFormat] = useState<DateFormat>('US');
   const [timeFormat, setTimeFormat] = useState<TimeFormat>('24h');
 
@@ -40,21 +63,197 @@ export default function Settings() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/admin/event-settings');
-      if (!response.ok) {
-        throw new Error('Failed to fetch settings');
-      }
+      const response = await fetch('/api/admin/image-settings');
       const data = await response.json();
-      setSettings(data);
+      
+      if (!response.ok) throw new Error(data.error);
+      
+      setImageSettings(data);
+      setNewImageUrl(data.imageUrl);
+      setNewAltText(data.altText);
+      setPreviewUrl(data.imageUrl);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Error fetching settings');
+      setStatus({
+        type: 'error',
+        message: 'Failed to load settings'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImageError = () => {
+    setStatus({
+      type: 'error',
+      message: 'Failed to load image. Please check the URL and try again.'
+    });
+    // Reset to default image
+    setPreviewUrl(DEFAULT_IMAGE);
+    setNewImageUrl(DEFAULT_IMAGE);
+    
+    // Update in database
+    const formData = new FormData();
+    formData.append('imageUrl', DEFAULT_IMAGE);
+    formData.append('altText', 'Event Celebration');
+    
+    fetch('/api/admin/image-settings', {
+      method: 'POST',
+      body: formData,
+    }).catch(console.error);
+  };
+
+  const validateImageUrl = async (url: string): Promise<boolean> => {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      const contentType = response.headers.get('content-type');
+      return contentType?.startsWith('image/') || false;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleImagePreview = async () => {
+    if (!newImageUrl) {
+      setStatus({
+        type: 'error',
+        message: 'Please enter an image URL'
+      });
+      return;
+    }
+
+    // Validate image URL
+    const isValid = await validateImageUrl(newImageUrl);
+    if (!isValid) {
+      setStatus({
+        type: 'error',
+        message: 'Invalid image URL. Please enter a valid image URL.'
+      });
+      return;
+    }
+
+    setPreviewUrl(newImageUrl);
+  };
+
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+
+    // Reset status
+    setStatus({ type: null, message: '' });
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setStatus({
+        type: 'error',
+        message: 'Please upload an image file'
+      });
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setStatus({
+        type: 'error',
+        message: 'Image size should be less than 5MB'
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('altText', newAltText || 'Event Celebration');
+
+    try {
+      setIsSaving(true);
+      const response = await fetch('/api/admin/image-settings', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload image');
+      }
+
+      setImageSettings(data);
+      setNewImageUrl(data.imageUrl);
+      setPreviewUrl(data.imageUrl);
+      setStatus({
+        type: 'success',
+        message: 'Image uploaded successfully!'
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      setStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to upload image'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleImageUrlUpdate = async () => {
+    if (!newImageUrl) {
+      setStatus({
+        type: 'error',
+        message: 'Please enter an image URL'
+      });
+      return;
+    }
+
+    // Validate image URL
+    const isValid = await validateImageUrl(newImageUrl);
+    if (!isValid) {
+      setStatus({
+        type: 'error',
+        message: 'Invalid image URL. Please enter a valid image URL.'
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('imageUrl', newImageUrl);
+    formData.append('altText', newAltText || 'Event Celebration');
+
+    try {
+      setIsSaving(true);
+      const response = await fetch('/api/admin/image-settings', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update image settings');
+      }
+
+      setImageSettings(data);
+      setPreviewUrl(data.imageUrl);
+      setStatus({
+        type: 'success',
+        message: 'Image settings updated successfully!'
+      });
+    } catch (error) {
+      console.error('Update error:', error);
+      setStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to update image settings'
+      });
+      // Reset to default image on error
+      handleImageError();
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    setError('');
-    setSuccessMessage('');
+    setStatus({
+      type: null,
+      message: ''
+    });
 
     try {
       const response = await fetch('/api/admin/event-settings', {
@@ -62,7 +261,7 @@ export default function Settings() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(eventSettings),
       });
 
       if (!response.ok) {
@@ -70,9 +269,15 @@ export default function Settings() {
         throw new Error(data.error || 'Failed to save settings');
       }
 
-      setSuccessMessage('Settings saved successfully! Please refresh the page to see the changes.');
+      setStatus({
+        type: 'success',
+        message: 'Settings saved successfully! Please refresh the page to see the changes.'
+      });
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Error saving settings');
+      setStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Error saving settings'
+      });
     } finally {
       setIsSaving(false);
     }
@@ -92,12 +297,222 @@ export default function Settings() {
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const timeValue = e.target.value;
     console.log('Time selected:', timeValue); // For debugging
-    setSettings({ ...settings, time: timeValue });
+    setEventSettings({ ...eventSettings, time: timeValue });
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8" dir="ltr">
-      <h1 className="text-3xl font-bold text-white mb-8">Admin Settings</h1>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="bg-gray-800 rounded-lg p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-white mb-2">
+          Settings
+        </h1>
+        <p className="text-gray-300">
+          Manage your event settings and customization options.
+        </p>
+      </div>
+
+      {/* Status Message */}
+      {status.type && (
+        <div className={`p-4 rounded-lg ${
+          status.type === 'success' 
+            ? 'bg-green-500/20 text-green-200 border border-green-500/30'
+            : 'bg-red-500/20 text-red-200 border border-red-500/30'
+        }`}>
+          {status.message}
+        </div>
+      )}
+
+      {/* Event Settings */}
+      <div className="bg-gray-800 rounded-lg p-6 shadow-sm">
+        <h2 className="text-xl font-semibold text-white mb-6">Event Details</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-2">
+              Event Title
+            </label>
+            <input
+              type="text"
+              value={eventSettings.title}
+              onChange={(e) => setEventSettings(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-2">
+                Event Date
+              </label>
+              <input
+                type="date"
+                value={eventSettings.date}
+                onChange={(e) => setEventSettings(prev => ({ ...prev, date: e.target.value }))}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-2">
+                Event Time
+              </label>
+              <input
+                type="time"
+                value={eventSettings.time}
+                onChange={handleTimeChange}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-2">
+              Venue Name
+            </label>
+            <input
+              type="text"
+              value={eventSettings.venueName}
+              onChange={(e) => setEventSettings(prev => ({ ...prev, venueName: e.target.value }))}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-2">
+              Venue Address
+            </label>
+            <input
+              type="text"
+              value={eventSettings.venueAddress}
+              onChange={(e) => setEventSettings(prev => ({ ...prev, venueAddress: e.target.value }))}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Image Settings */}
+      <div className="bg-gray-800 rounded-lg p-6 shadow-sm">
+        <h2 className="text-xl font-semibold text-white mb-6">Hero Image</h2>
+        
+        {/* Current Image Preview */}
+        <div className="mb-6">
+          <h3 className="text-lg font-medium text-white mb-4">Current Image</h3>
+          <div className="relative h-[300px] rounded-lg overflow-hidden bg-gray-700">
+            {previewUrl ? (
+              <Image
+                src={previewUrl}
+                alt={imageSettings?.altText || 'Preview'}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                onError={handleImageError}
+                priority
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                No image selected
+              </div>
+            )}
+          </div>
+          {imageSettings?.updatedAt && (
+            <p className="mt-2 text-sm text-gray-400">
+              Last updated: {new Date(imageSettings.updatedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+
+        {/* Upload Section */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-medium text-white mb-4">Upload New Image</h3>
+            <div className="space-y-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full px-4 py-2 bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg text-gray-300 hover:bg-gray-600 transition-colors"
+              >
+                Click to Upload Image
+              </button>
+            </div>
+          </div>
+
+          <div className="- my-2 border-t border-gray-700"></div>
+
+          <div>
+            <h3 className="text-lg font-medium text-white mb-4">Or Use Image URL</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-2">
+                  Image URL
+                </label>
+                <input
+                  type="url"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+                  placeholder="Enter image URL"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-2">
+                  Alt Text
+                </label>
+                <input
+                  type="text"
+                  value={newAltText}
+                  onChange={(e) => setNewAltText(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-white"
+                  placeholder="Enter alt text for accessibility"
+                />
+              </div>
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleImagePreview}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Preview
+                </button>
+                <button
+                  onClick={handleImageUrlUpdate}
+                  disabled={isSaving}
+                  className={`px-4 py-2 bg-amber-500 text-white rounded-lg font-medium ${
+                    isSaving
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-amber-600 transition-colors'
+                  }`}
+                >
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Image Guidelines */}
+      <div className="bg-gray-800 rounded-lg p-6 shadow-sm">
+        <h2 className="text-xl font-semibold text-white mb-4">Image Guidelines</h2>
+        <ul className="list-disc list-inside space-y-2 text-gray-300">
+          <li>Use high-resolution images (minimum 1920x1080)</li>
+          <li>Ensure the image is relevant to your event theme</li>
+          <li>Optimize for web to maintain fast loading times</li>
+          <li>Consider using images from Unsplash or similar services</li>
+          <li>Test how the image looks on different screen sizes</li>
+        </ul>
+      </div>
 
       {/* Format Settings Section */}
       <div className="bg-gray-800 rounded-lg p-6">
@@ -142,104 +557,17 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="bg-gray-800 rounded-lg border border-amber-500/20 p-6">
-        <div className="space-y-6">
-          {/* Event Details Form */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Event Title
-              </label>
-              <input
-                type="text"
-                value={settings.title}
-                onChange={(e) => setSettings({ ...settings, title: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-amber-500/30 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                placeholder="You're Invited!"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Event Date
-              </label>
-              <input
-                type="date"
-                value={settings.date}
-                onChange={(e) => setSettings({ ...settings, date: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-amber-500/30 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Event Time (24-hour format)
-              </label>
-              <div className="space-y-2">
-                <input
-                  type="time"
-                  value={settings.time}
-                  onChange={handleTimeChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-amber-500/30 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500 [color-scheme:dark]"
-                />
-                <p className="text-sm text-gray-400">
-                  Selected time: {settings.time ? formatTime(settings.time, timeFormat) : 'Not set'}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Venue Name
-              </label>
-              <input
-                type="text"
-                value={settings.venueName}
-                onChange={(e) => setSettings({ ...settings, venueName: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-amber-500/30 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                placeholder="The Grand Ballroom"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white font-medium mb-2">
-                Venue Address
-              </label>
-              <input
-                type="text"
-                value={settings.venueAddress}
-                onChange={(e) => setSettings({ ...settings, venueAddress: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-amber-500/30 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                placeholder="123 Event Street, City"
-              />
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <div className="pt-6 border-t border-gray-700">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className={`w-full px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 ${
-                isSaving ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSaving ? 'Saving...' : 'Save Settings'}
-            </button>
-          </div>
-
-          {/* Status Messages */}
-          {error && (
-            <div className="mt-4 bg-red-500/20 border border-red-500/30 text-red-200 p-4 rounded-lg">
-              {error}
-            </div>
-          )}
-          {successMessage && (
-            <div className="mt-4 bg-green-500/20 border border-green-500/30 text-green-200 p-4 rounded-lg">
-              {successMessage}
-            </div>
-          )}
-        </div>
+      {/* Save Button */}
+      <div className="pt-6 border-t border-gray-700">
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className={`w-full px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 ${
+            isSaving ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+        >
+          {isSaving ? 'Saving...' : 'Save Settings'}
+        </button>
       </div>
     </div>
   );
